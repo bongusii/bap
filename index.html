@@ -16,13 +16,13 @@
             background-color: #fce4ec;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             user-select: none;
-            overflow: hidden; /* Ngăn cuộn trang trên mobile */
+            overflow: hidden;
         }
         
         #game-container {
             position: relative;
             width: 100%;
-            max-width: 400px; /* Tối đa 400px, thu nhỏ trên màn hẹp */
+            max-width: 400px; 
             height: 100vh;
             max-height: 600px;
             background-color: #fff;
@@ -30,7 +30,7 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             overflow: hidden; 
             text-align: center;
-            touch-action: none; /* Quan trọng: Ngăn trình duyệt cuộn/zoom khi vuốt chải */
+            touch-action: none;
         }
 
         #score-board {
@@ -73,12 +73,12 @@
         }
 
         .cat-image.brushing {
-            transform: scale(0.95) rotate(-3deg); /* Làm rõ hiệu ứng rung hơn trên mobile */
+            transform: scale(0.95) rotate(-3deg); 
         }
 
         @keyframes biteZoom {
             0% { transform: scale(1); }
-            100% { transform: scale(3); } /* Zoom to hơn chút nữa cho ngợp */
+            100% { transform: scale(3); } 
         }
 
         .cat-image.biting-zoom {
@@ -87,29 +87,26 @@
             border: 2px solid red;
         }
 
-        /* ========================================= */
-        /* [MỚI] GIAO DIỆN MÀN HÌNH GAME OVER        */
-        /* ========================================= */
         #game-over-screen {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.8); /* Lớp phủ đen mờ */
+            background-color: rgba(0, 0, 0, 0.8);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             opacity: 0;
-            pointer-events: none; /* Bỏ qua click khi đang ẩn */
+            pointer-events: none; 
             transition: opacity 0.4s ease;
             z-index: 50;
         }
 
         #game-over-screen.show {
             opacity: 1;
-            pointer-events: auto; /* Nhận click khi hiện */
+            pointer-events: auto; 
         }
 
         .go-title {
@@ -180,6 +177,10 @@
         let isGameOver = false;
         let isBrushing = false;
         let stateTimer;
+        
+        // [MỚI] Biến để quản lý thời gian ân hạn 1 giây
+        let graceTimer;
+        let gracePeriodActive = false;
 
         const scoreEl = document.getElementById('score');
         const messageEl = document.getElementById('message');
@@ -188,13 +189,11 @@
         const gameOverScreen = document.getElementById('game-over-screen');
         const finalScoreEl = document.getElementById('final-score');
 
-        // [CẬP NHẬT] Dùng Pointer Events để hỗ trợ mượt mà cả chuột và cảm ứng điện thoại
         catArea.addEventListener('pointerdown', (e) => {
             if(isGameOver) return;
             isBrushing = true;
             catImg.classList.add('brushing');
             brushCat();
-            // Bắt trọn event di chuyển kể cả khi ngón tay lướt ra ngoài viền catArea
             catArea.setPointerCapture(e.pointerId); 
         });
 
@@ -206,7 +205,6 @@
             catArea.releasePointerCapture(e.pointerId);
         });
 
-        // Bổ sung phòng hờ bị ngắt cảm ứng (VD: có cuộc gọi tới)
         catArea.addEventListener('pointercancel', (e) => {
             isBrushing = false;
             catImg.classList.remove('brushing');
@@ -219,7 +217,10 @@
 
         function brushCat() {
             if (state === 'glaring') {
-                gameOver();
+                // [CẬP NHẬT] Nếu hết 1 giây ân hạn mà vẫn chải (hoặc chải lại) thì mới game over
+                if (!gracePeriodActive) {
+                    gameOver();
+                }
             } else if (state === 'normal') {
                 score++;
                 scoreEl.innerText = Math.floor(score / 5); 
@@ -228,12 +229,13 @@
 
         function scheduleNextState() {
             if (isGameOver) return;
-            let timeToGlare = Math.random() * 3000 + 2000; // Nghỉ từ 2 - 5s
+            let timeToGlare = Math.random() * 3000 + 2000; 
             stateTimer = setTimeout(() => {
                 setCatState('glaring');
                 
-                // [CẬP NHẬT] Thời gian lườm random từ 1s (1000ms) đến 3s (3000ms)
-                let glareDuration = Math.random() * 2000 + 1000; 
+                // [CẬP NHẬT] Thời gian lườm random từ 1.5s (1500ms) đến 3.5s (3500ms)
+                // Đảm bảo Bắp lườm đủ lâu để có tác dụng sau 1 giây ân hạn
+                let glareDuration = Math.random() * 2000 + 1500; 
                 
                 setTimeout(() => {
                     if (!isGameOver && state === 'glaring') {
@@ -252,14 +254,26 @@
                 catImg.src = IMG_NORMAL;
                 messageEl.innerText = "Vuốt vuốt chải chải nào!";
                 messageEl.style.color = "#333";
+                
+                // Hủy bộ đếm ân hạn nếu quay về bình thường
+                gracePeriodActive = false;
+                clearTimeout(graceTimer);
+                
             } else if (state === 'glaring') {
                 catImg.src = IMG_GLARE;
-                messageEl.innerText = "Nàooo!!! Làm gì đếi bro?!";
+                messageEl.innerText = "NÀOOO! Làm gì đếi broo?!";
                 messageEl.style.color = "#ff9800";
                 
-                if (isBrushing) {
-                    gameOver();
-                }
+                // [MỚI] Kích hoạt 1 giây ân hạn
+                gracePeriodActive = true;
+                graceTimer = setTimeout(() => {
+                    gracePeriodActive = false;
+                    
+                    // Kiểm tra: Sau đúng 1 giây, nếu sen vẫn ngoan cố chải -> Ngoạm ngay
+                    if (isBrushing && !isGameOver && state === 'glaring') {
+                        gameOver();
+                    }
+                }, 1000); // 1000ms = 1 giây
             }
         }
 
@@ -271,12 +285,12 @@
             catImg.classList.remove('brushing');
             catImg.classList.add('biting-zoom');
 
-            messageEl.innerText = "BẠN ĐÃ BỊ NGOẠM!";
+            messageEl.innerText = "CHẢI NỮA LÀ BỊ NGOẠM!";
             messageEl.style.color = "red";
             
             clearTimeout(stateTimer);
+            clearTimeout(graceTimer); // Hủy bộ đếm ân hạn để an toàn
             
-            // Cập nhật điểm cuối và hiện màn hình Game Over sau 0.3s chờ zoom
             finalScoreEl.innerText = Math.floor(score / 5);
             setTimeout(() => {
                 gameOverScreen.classList.add('show');
@@ -288,8 +302,8 @@
             scoreEl.innerText = "0";
             isGameOver = false;
             isBrushing = false;
+            gracePeriodActive = false;
             
-            // Ẩn màn hình game over
             gameOverScreen.classList.remove('show');
             
             catImg.classList.remove('biting-zoom');
@@ -300,14 +314,13 @@
 
             setCatState('normal');
             clearTimeout(stateTimer);
+            clearTimeout(graceTimer);
             
-            // Cho người chơi 1 giây chuẩn bị trước khi bắt đầu tính random lườm
             setTimeout(() => {
                 scheduleNextState();
             }, 1000);
         }
 
-        // Bắt đầu ngay khi load
         startGame();
     </script>
 </body>
