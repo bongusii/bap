@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chải Lông Cho Bắp - Cấp Độ Nguy Hiểm</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #fce4ec;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 400px;
+            height: 500px;
+            background-color: #fff;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden; /* Quan trọng để hình mèo không tràn ra ngoài khi zoom */
+            text-align: center;
+            cursor: url('https://cdn-icons-png.flaticon.com/32/2855/2855589.png') 16 16, pointer;
+        }
+
+        #score-board {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 20px;
+            color: #d81b60;
+            position: relative;
+            z-index: 10; /* Nổi lên trên hình mèo khi zoom */
+        }
+
+        #cat-area {
+            width: 100%;
+            height: 350px;
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .cat-image {
+            width: 250px;
+            height: 250px;
+            object-fit: cover;
+            border-radius: 15px;
+            pointer-events: none;
+            transition: transform 0.1s; /* Transition cho hiệu ứng chải */
+        }
+
+        /* Hiệu ứng rung nhẹ khi chải */
+        .cat-image.brushing {
+            transform: scale(0.98) rotate(-2deg);
+        }
+
+        /* ========================================= */
+        /* [MỚI] ĐỊNH NGHĨA ANIMATION ZOOM KHI NGOẠM */
+        /* ========================================= */
+        @keyframes biteZoom {
+            0% {
+                transform: scale(1); /* Kích thước bình thường */
+            }
+            100% {
+                transform: scale(2.5); /* Phóng to lên 2.5 lần */
+            }
+        }
+
+        /* [MỚI] CLASS SẼ ĐƯỢC ADD VÀO KHI GAME OVER */
+        .cat-image.biting-zoom {
+            /* Chạy animation tên biteZoom trong 0.5 giây, mượt dần về sau, giữ lại trạng thái cuối */
+            animation: biteZoom 0.5s ease-out forwards;
+            
+            /* Thêm chút hiệu ứng đỏ ngầu mờ ảo */
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.7);
+            border: 2px solid red;
+        }
+
+        #message {
+            font-size: 20px;
+            font-weight: bold;
+            height: 30px;
+            color: #333;
+            margin-top: 10px;
+            position: relative;
+            z-index: 10;
+        }
+
+        #restart-btn {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            background-color: #d81b60;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+            z-index: 20; /* Z-index cao để đè lên hình ảnh đang zoom */
+            box-shadow: 0 5px 20px rgba(0,0,0,0.4); /* Thêm bóng đổ để nút nổi bật hơn */
+        }
+
+        #restart-btn:hover {
+            background-color: #ad1457;
+            transform: translate(-50%, -53%); /* Hiệu ứng nảy nhẹ khi hover */
+            box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="score-board">Điểm: <span id="score">0</span></div>
+        <div id="message">Hãy chải lông cho Bắp nào!</div>
+        
+        <div id="cat-area">
+            <img id="cat-img" class="cat-image" src="" alt="Mèo">
+        </div>
+        
+        <button id="restart-btn" onclick="startGame()">Chơi lại đi bro!</button>
+    </div>
+
+    <script>
+        // ==========================================
+        // KHU VỰC THAY ẢNH CỦA BẠN
+        // ==========================================
+        // Bạn nhớ thay link ảnh thật của bạn vào đây nhé
+        const IMG_NORMAL = "lung.png"; 
+        const IMG_GLARE = "luom.png";     
+        const IMG_BITE = "ngoam.png"; 
+
+        let score = 0;
+        let state = 'normal';
+        let isGameOver = false;
+        let isBrushing = false;
+        let stateTimer;
+
+        const scoreEl = document.getElementById('score');
+        const messageEl = document.getElementById('message');
+        const catImg = document.getElementById('cat-img');
+        const catArea = document.getElementById('cat-area');
+        const restartBtn = document.getElementById('restart-btn');
+
+        // Sự kiện chuột
+        catArea.addEventListener('mousedown', () => {
+            if(isGameOver) return;
+            isBrushing = true;
+            catImg.classList.add('brushing');
+            brushCat();
+        });
+
+        document.addEventListener('mouseup', () => {
+            isBrushing = false;
+            // Chỉ remove class brushing nếu ko phải game over để tránh conflict với animation zoom
+            if(!isGameOver) {
+                catImg.classList.remove('brushing');
+            }
+        });
+
+        catArea.addEventListener('mousemove', () => {
+            if(isGameOver || !isBrushing) return;
+            brushCat();
+        });
+
+        function brushCat() {
+            if (state === 'glaring') {
+                gameOver();
+            } else if (state === 'normal') {
+                score++;
+                scoreEl.innerText = Math.floor(score / 5); 
+            }
+        }
+
+        function scheduleNextState() {
+            if (isGameOver) return;
+            let timeToGlare = Math.random() * 3000 + 2000;
+            stateTimer = setTimeout(() => {
+                setCatState('glaring');
+                let glareDuration = Math.random() * 700 + 800;
+                setTimeout(() => {
+                    if (!isGameOver && state === 'glaring') {
+                        setCatState('normal');
+                        scheduleNextState();
+                    }
+                }, glareDuration);
+            }, timeToGlare);
+        }
+
+        function setCatState(newState) {
+            if (isGameOver) return;
+            state = newState;
+
+            if (state === 'normal') {
+                catImg.src = IMG_NORMAL;
+                messageEl.innerText = "Chải tiếp đi bé iu!";
+                messageEl.style.color = "#333";
+            } else if (state === 'glaring') {
+                catImg.src = IMG_GLARE;
+                messageEl.innerText = "NÀO!!! ĐANG LÀM GÌ ĐẾI BRO???";
+                messageEl.style.color = "#ff9800";
+                
+                if (isBrushing) {
+                    gameOver();
+                }
+            }
+        }
+
+        // =========================================
+        // [CẬP NHẬT] HÀM GAME OVER ĐỂ TẠO ZOOM
+        // =========================================
+        function gameOver() {
+            isGameOver = true;
+            state = 'biting';
+            catImg.src = IMG_BITE;
+            
+            // Xóa class rung khi chải
+            catImg.classList.remove('brushing');
+            
+            // [MỚI] Thêm class trigger animation zoom to
+            catImg.classList.add('biting-zoom');
+
+            messageEl.innerText = "Á Á Á! GÂY KHÓ CHỊU VÀ BỊ NGOẠM!";
+            messageEl.style.color = "red";
+            
+            clearTimeout(stateTimer);
+            restartBtn.style.display = "inline-block";
+        }
+
+        function startGame() {
+            score = 0;
+            scoreEl.innerText = "0";
+            isGameOver = false;
+            isBrushing = false;
+            restartBtn.style.display = "none";
+            
+            // [MỚI] Xóa class zoom để hình mèo quay về bình thường
+            catImg.classList.remove('biting-zoom');
+            catImg.classList.remove('brushing');
+            
+            // Reset style (border/shadow) về mặc định nếu cần
+            catImg.style.boxShadow = "none";
+            catImg.style.border = "none";
+
+            setCatState('normal');
+            clearTimeout(stateTimer);
+            scheduleNextState();
+        }
+
+        startGame();
+    </script>
+</body>
+</html>
