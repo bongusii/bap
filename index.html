@@ -2,8 +2,8 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chải Lông Cho Bắp - Cấp Độ Nguy Hiểm</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chải Lông Cho Bắp - Bản Mobile Nguy Hiểm</title>
     <style>
         body {
             margin: 0;
@@ -16,27 +16,41 @@
             background-color: #fce4ec;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             user-select: none;
+            overflow: hidden; /* Ngăn cuộn trang trên mobile */
         }
         
         #game-container {
             position: relative;
-            width: 400px;
-            height: 500px;
+            width: 100%;
+            max-width: 400px; /* Tối đa 400px, thu nhỏ trên màn hẹp */
+            height: 100vh;
+            max-height: 600px;
             background-color: #fff;
             border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            overflow: hidden; /* Quan trọng để hình mèo không tràn ra ngoài khi zoom */
+            overflow: hidden; 
             text-align: center;
-            cursor: url('https://cdn-icons-png.flaticon.com/32/2855/2855589.png') 16 16, pointer;
+            touch-action: none; /* Quan trọng: Ngăn trình duyệt cuộn/zoom khi vuốt chải */
         }
 
         #score-board {
             font-size: 24px;
             font-weight: bold;
-            margin-top: 20px;
+            margin-top: 30px;
             color: #d81b60;
             position: relative;
-            z-index: 10; /* Nổi lên trên hình mèo khi zoom */
+            z-index: 10; 
+        }
+
+        #message {
+            font-size: 20px;
+            font-weight: bold;
+            height: 30px;
+            color: #333;
+            margin-top: 10px;
+            position: relative;
+            z-index: 10;
+            padding: 0 10px;
         }
 
         #cat-area {
@@ -55,69 +69,87 @@
             object-fit: cover;
             border-radius: 15px;
             pointer-events: none;
-            transition: transform 0.1s; /* Transition cho hiệu ứng chải */
+            transition: transform 0.1s; 
         }
 
-        /* Hiệu ứng rung nhẹ khi chải */
         .cat-image.brushing {
-            transform: scale(0.98) rotate(-2deg);
+            transform: scale(0.95) rotate(-3deg); /* Làm rõ hiệu ứng rung hơn trên mobile */
         }
 
-        /* ========================================= */
-        /* [MỚI] ĐỊNH NGHĨA ANIMATION ZOOM KHI NGOẠM */
-        /* ========================================= */
         @keyframes biteZoom {
-            0% {
-                transform: scale(1); /* Kích thước bình thường */
-            }
-            100% {
-                transform: scale(2.5); /* Phóng to lên 2.5 lần */
-            }
+            0% { transform: scale(1); }
+            100% { transform: scale(3); } /* Zoom to hơn chút nữa cho ngợp */
         }
 
-        /* [MỚI] CLASS SẼ ĐƯỢC ADD VÀO KHI GAME OVER */
         .cat-image.biting-zoom {
-            /* Chạy animation tên biteZoom trong 0.5 giây, mượt dần về sau, giữ lại trạng thái cuối */
             animation: biteZoom 0.5s ease-out forwards;
-            
-            /* Thêm chút hiệu ứng đỏ ngầu mờ ảo */
             box-shadow: 0 0 30px rgba(255, 0, 0, 0.7);
             border: 2px solid red;
         }
 
-        #message {
+        /* ========================================= */
+        /* [MỚI] GIAO DIỆN MÀN HÌNH GAME OVER        */
+        /* ========================================= */
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8); /* Lớp phủ đen mờ */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none; /* Bỏ qua click khi đang ẩn */
+            transition: opacity 0.4s ease;
+            z-index: 50;
+        }
+
+        #game-over-screen.show {
+            opacity: 1;
+            pointer-events: auto; /* Nhận click khi hiện */
+        }
+
+        .go-title {
+            color: #ff5252;
+            font-size: 32px;
+            font-weight: 900;
+            text-transform: uppercase;
+            text-shadow: 2px 2px 0px #fff;
+            margin-bottom: 10px;
+            text-align: center;
+            line-height: 1.2;
+        }
+
+        .go-score {
+            color: #fff;
             font-size: 20px;
+            margin-bottom: 40px;
+        }
+
+        .go-score span {
+            color: #ffeb3b;
+            font-size: 28px;
             font-weight: bold;
-            height: 30px;
-            color: #333;
-            margin-top: 10px;
-            position: relative;
-            z-index: 10;
         }
 
         #restart-btn {
-            display: none;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            padding: 15px 30px;
-            font-size: 18px;
+            padding: 15px 40px;
+            font-size: 20px;
             font-weight: bold;
-            background-color: #d81b60;
+            background: linear-gradient(45deg, #d81b60, #ff4081);
             color: white;
             border: none;
-            border-radius: 10px;
+            border-radius: 50px;
             cursor: pointer;
-            transition: 0.2s;
-            z-index: 20; /* Z-index cao để đè lên hình ảnh đang zoom */
-            box-shadow: 0 5px 20px rgba(0,0,0,0.4); /* Thêm bóng đổ để nút nổi bật hơn */
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 5px 15px rgba(216, 27, 96, 0.5);
         }
 
-        #restart-btn:hover {
-            background-color: #ad1457;
-            transform: translate(-50%, -53%); /* Hiệu ứng nảy nhẹ khi hover */
-            box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+        #restart-btn:active {
+            transform: scale(0.95);
         }
     </style>
 </head>
@@ -125,20 +157,20 @@
 
     <div id="game-container">
         <div id="score-board">Điểm: <span id="score">0</span></div>
-        <div id="message">Hãy chải lông cho Bắp nào!</div>
+        <div id="message">Vuốt để chải lông cho Bắp!</div>
         
         <div id="cat-area">
             <img id="cat-img" class="cat-image" src="" alt="Mèo">
         </div>
         
-        <button id="restart-btn" onclick="startGame()">Chơi lại đi bro!</button>
+        <div id="game-over-screen">
+            <div class="go-title">BỊ NGOẠM RỒI<br>QUÁ YẾU NGHỀ!!!</div>
+            <div class="go-score">Điểm chải lông: <span id="final-score">0</span></div>
+            <button id="restart-btn" onclick="startGame()">Chơi Lại Đi</button>
+        </div>
     </div>
 
     <script>
-        // ==========================================
-        // KHU VỰC THAY ẢNH CỦA BẠN
-        // ==========================================
-        // Bạn nhớ thay link ảnh thật của bạn vào đây nhé
         const IMG_NORMAL = "lung.png"; 
         const IMG_GLARE = "luom.png";     
         const IMG_BITE = "ngoam.png"; 
@@ -153,25 +185,34 @@
         const messageEl = document.getElementById('message');
         const catImg = document.getElementById('cat-img');
         const catArea = document.getElementById('cat-area');
-        const restartBtn = document.getElementById('restart-btn');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const finalScoreEl = document.getElementById('final-score');
 
-        // Sự kiện chuột
-        catArea.addEventListener('mousedown', () => {
+        // [CẬP NHẬT] Dùng Pointer Events để hỗ trợ mượt mà cả chuột và cảm ứng điện thoại
+        catArea.addEventListener('pointerdown', (e) => {
             if(isGameOver) return;
             isBrushing = true;
             catImg.classList.add('brushing');
             brushCat();
+            // Bắt trọn event di chuyển kể cả khi ngón tay lướt ra ngoài viền catArea
+            catArea.setPointerCapture(e.pointerId); 
         });
 
-        document.addEventListener('mouseup', () => {
+        catArea.addEventListener('pointerup', (e) => {
             isBrushing = false;
-            // Chỉ remove class brushing nếu ko phải game over để tránh conflict với animation zoom
             if(!isGameOver) {
                 catImg.classList.remove('brushing');
             }
+            catArea.releasePointerCapture(e.pointerId);
         });
 
-        catArea.addEventListener('mousemove', () => {
+        // Bổ sung phòng hờ bị ngắt cảm ứng (VD: có cuộc gọi tới)
+        catArea.addEventListener('pointercancel', (e) => {
+            isBrushing = false;
+            catImg.classList.remove('brushing');
+        });
+
+        catArea.addEventListener('pointermove', (e) => {
             if(isGameOver || !isBrushing) return;
             brushCat();
         });
@@ -187,10 +228,13 @@
 
         function scheduleNextState() {
             if (isGameOver) return;
-            let timeToGlare = Math.random() * 3000 + 2000;
+            let timeToGlare = Math.random() * 3000 + 2000; // Nghỉ từ 2 - 5s
             stateTimer = setTimeout(() => {
                 setCatState('glaring');
-                let glareDuration = Math.random() * 700 + 800;
+                
+                // [CẬP NHẬT] Thời gian lườm random từ 1s (1000ms) đến 3s (3000ms)
+                let glareDuration = Math.random() * 2000 + 1000; 
+                
                 setTimeout(() => {
                     if (!isGameOver && state === 'glaring') {
                         setCatState('normal');
@@ -206,11 +250,11 @@
 
             if (state === 'normal') {
                 catImg.src = IMG_NORMAL;
-                messageEl.innerText = "Chải tiếp đi bé iu!";
+                messageEl.innerText = "Vuốt vuốt chải chải nào!";
                 messageEl.style.color = "#333";
             } else if (state === 'glaring') {
                 catImg.src = IMG_GLARE;
-                messageEl.innerText = "NÀO!!! ĐANG LÀM GÌ ĐẾI BRO???";
+                messageEl.innerText = "Nàooo!!! Làm gì đếi bro?!";
                 messageEl.style.color = "#ff9800";
                 
                 if (isBrushing) {
@@ -219,25 +263,24 @@
             }
         }
 
-        // =========================================
-        // [CẬP NHẬT] HÀM GAME OVER ĐỂ TẠO ZOOM
-        // =========================================
         function gameOver() {
             isGameOver = true;
             state = 'biting';
             catImg.src = IMG_BITE;
             
-            // Xóa class rung khi chải
             catImg.classList.remove('brushing');
-            
-            // [MỚI] Thêm class trigger animation zoom to
             catImg.classList.add('biting-zoom');
 
-            messageEl.innerText = "Á Á Á! GÂY KHÓ CHỊU VÀ BỊ NGOẠM!";
+            messageEl.innerText = "BẠN ĐÃ BỊ NGOẠM!";
             messageEl.style.color = "red";
             
             clearTimeout(stateTimer);
-            restartBtn.style.display = "inline-block";
+            
+            // Cập nhật điểm cuối và hiện màn hình Game Over sau 0.3s chờ zoom
+            finalScoreEl.innerText = Math.floor(score / 5);
+            setTimeout(() => {
+                gameOverScreen.classList.add('show');
+            }, 300);
         }
 
         function startGame() {
@@ -245,21 +288,26 @@
             scoreEl.innerText = "0";
             isGameOver = false;
             isBrushing = false;
-            restartBtn.style.display = "none";
             
-            // [MỚI] Xóa class zoom để hình mèo quay về bình thường
+            // Ẩn màn hình game over
+            gameOverScreen.classList.remove('show');
+            
             catImg.classList.remove('biting-zoom');
             catImg.classList.remove('brushing');
             
-            // Reset style (border/shadow) về mặc định nếu cần
             catImg.style.boxShadow = "none";
             catImg.style.border = "none";
 
             setCatState('normal');
             clearTimeout(stateTimer);
-            scheduleNextState();
+            
+            // Cho người chơi 1 giây chuẩn bị trước khi bắt đầu tính random lườm
+            setTimeout(() => {
+                scheduleNextState();
+            }, 1000);
         }
 
+        // Bắt đầu ngay khi load
         startGame();
     </script>
 </body>
